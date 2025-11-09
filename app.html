@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/x-icon" href="/img/icon.ico">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Video Analyzer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Auth Guard: This script must run before the body renders -->
+    <script src="/auth-guard.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.28.0",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/"
+  }
+}
+</script>
+</head>
+  <body class="bg-slate-900 text-gray-100 font-sans">
+    
+    <div class="min-h-screen">
+      <header class="bg-slate-800/50 backdrop-blur-sm shadow-lg p-4 sticky top-0 z-10 flex items-center justify-center relative">
+        <div id="user-session-controls" class="absolute top-1/2 left-4 -translate-y-1/2 flex items-center gap-4">
+          <!-- This section is populated by app.js based on login status -->
+        </div>
+        <div>
+          <h1 class="text-2xl md:text-3xl font-bold text-center bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-cyan-400">
+            Trình Phân Tích Video AI
+          </h1>
+          <p class="text-center text-slate-400 text-sm mt-1">Phiên bản chính thức được phát triển bởi Lý Trần nhằm mục đích xây dựng nội dung bằng AI</p>
+        </div>
+      </header>
+      
+      <main class="p-4 md:p-8">
+        <div class="container mx-auto max-w-7xl relative">
+          
+          <!-- Settings Button -->
+          <div class="absolute top-0 right-0 z-20">
+            <button id="settings-toggle" class="p-2 rounded-full bg-slate-700/50 hover:bg-slate-600/50 text-slate-300 transition-colors" aria-label="Cài đặt">
+              <svg id="settings-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 transition-transform duration-300"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.438.995s.145.755.438.995l1.003.827c.424.35.534.954.26 1.431l-1.296 2.247a1.125 1.125 0 01-1.37.49l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.127c-.332.183-.582.495-.645.87l-.213 1.281c-.09.543-.56.94-1.11.94h-2.593c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.063-.374-.313-.686-.645-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.37-.49l-1.296-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.437-.995s-.145-.755-.437-.995l-1.004-.827a1.125 1.125 0 01-.26-1.431l1.296-2.247a1.125 1.125 0 011.37-.49l1.217.456c.355.133.75.072 1.076-.124.072-.044.146-.087.22-.127.332-.183.582-.495.645-.87l.213-1.281z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+            </button>
+          </div>
+          
+          <!-- Settings Panel -->
+          <div id="settings-panel" class="hidden bg-slate-800/80 backdrop-blur-sm p-6 rounded-lg shadow-xl mb-6 border border-slate-700">
+              <h2 class="text-lg font-semibold mb-4 text-slate-200">Cài đặt</h2>
+            <div class="space-y-4">
+              <div>
+                <label for="api-key" class="block text-sm font-medium text-slate-400 mb-1">Khóa API Gemini</label>
+                <input type="password" id="api-key" placeholder="Nhập khóa API của bạn" class="w-full bg-slate-900 border border-slate-600 rounded-md px-3 py-2 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 transition"/>
+              </div>
+              <div>
+                <label for="model-select" class="block text-sm font-medium text-slate-400 mb-1">Chọn Model</label>
+                <select id="model-select" class="w-full bg-slate-900 border border-slate-600 rounded-md px-3 py-2 text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 transition">
+                  <option value="gemini-2.5-pro">Gemini 2.5 Pro (Chất lượng cao, chậm hơn)</option>
+                  <option value="gemini-2.5-flash">Gemini 2.5 Flash (Nhanh hơn, hiệu quả)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tabs -->
+          <div class="border-b border-slate-700 mb-6">
+              <nav class="-mb-px flex space-x-6" aria-label="Tabs">
+                  <button id="tab-single" class="tab-btn active text-purple-400 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-purple-400" data-tab="single">Phân Tích Đơn</button>
+                  <button id="tab-batch" class="tab-btn text-slate-400 hover:text-slate-200 hover:border-slate-400 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent" data-tab="batch">Phân Tích Hàng Loạt</button>
+              </nav>
+          </div>
+
+          <!-- Single Analysis Panel -->
+          <div id="panel-single" class="tab-panel">
+             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Left Column -->
+                <div class="flex flex-col gap-6">
+                    <div id="single-upload-container" class="w-full p-6 border-2 border-dashed rounded-xl text-center transition-all duration-300 border-slate-600 hover:border-purple-400 hover:bg-slate-800/50 cursor-pointer">
+                        <input type="file" id="single-file-input" accept="video/*" class="hidden"/>
+                        <div class="flex flex-col items-center justify-center gap-4">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-12 h-12 text-slate-500"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" /></svg>
+                          <div id="single-upload-text">
+                            <p class="text-lg font-semibold text-slate-300">Kéo và thả hoặc nhấp để tải lên video</p>
+                            <p class="text-sm text-slate-500">Video sẽ được phân tích chi tiết từng giây.</p>
+                          </div>
+                        </div>
+                    </div>
+                    
+                    <div class="relative flex py-2 items-center">
+                        <div class="flex-grow border-t border-slate-600"></div>
+                        <span class="flex-shrink mx-4 text-slate-400 uppercase text-sm">Hoặc</span>
+                        <div class="flex-grow border-t border-slate-600"></div>
+                    </div>
+                    
+                    <div>
+                        <label for="url-input" class="block text-sm font-medium text-slate-300 mb-2">Phân tích từ Link</label>
+                        <div class="flex gap-2">
+                            <input type="url" id="url-input" placeholder="Dán link video trực tiếp (.mp4) hoặc YouTube" class="flex-grow bg-slate-900 border border-slate-600 rounded-md px-3 py-2 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 transition"/>
+                            <button id="url-analyze-button" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                                Phân Tích
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="video-player-container" class="hidden w-full aspect-video bg-black rounded-xl overflow-hidden shadow-lg">
+                        <video id="video-player" controls class="w-full h-full"></video>
+                    </div>
+                    <button id="single-analyze-button" class="hidden w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100">
+                        Phân Tích Video
+                    </button>
+                </div>
+                <!-- Right Column: Results & Scriptwriting -->
+                <div class="flex flex-col gap-6 lg:max-h-[calc(100vh-220px)]">
+                  <div class="flex-grow lg:overflow-y-auto pr-2" id="single-results-container">
+                    <div id="single-results-placeholder" class="flex items-center justify-center h-full p-8 bg-slate-800/50 rounded-lg">
+                      <p class="text-slate-400 text-center">Vui lòng tải lên một video hoặc dán link để bắt đầu phân tích.</p>
+                    </div>
+                  </div>
+                  <!-- Scriptwriting Feature -->
+                  <div id="scriptwriting-feature-container" class="hidden shrink-0 border-t-2 border-slate-700 pt-4">
+                      <div class="flex items-center gap-3 mb-4">
+                          <input id="scriptwriting-checkbox" type="checkbox" class="w-5 h-5 rounded bg-slate-700 border-slate-500 text-purple-500 focus:ring-purple-600 cursor-pointer">
+                          <label for="scriptwriting-checkbox" class="font-bold text-lg text-purple-300 cursor-pointer">Viết Kịch Bản</label>
+                      </div>
+                      <div id="scriptwriting-options" class="hidden space-y-4">
+                          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                  <label for="script-style-select" class="block text-sm font-medium text-slate-400 mb-1">Phong cách viết</label>
+                                  <select id="script-style-select" class="w-full bg-slate-900 border border-slate-600 rounded-md px-3 py-2 text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 transition">
+                                      <option value="Kể chuyện (Storytelling)">Kể chuyện (Storytelling)</option>
+                                      <option value="Thuyết minh (Informative)">Thuyết minh (Informative)</option>
+                                      <option value="Hài hước (Humorous)">Hài hước (Humorous)</option>
+                                  </select>
+                              </div>
+                          </div>
+                          <div>
+                              <label for="script-custom-prompt" class="block text-sm font-medium text-slate-400 mb-1">Yêu cầu thêm (tùy chọn)</label>
+                              <textarea id="script-custom-prompt" rows="2" class="w-full bg-slate-900 border border-slate-600 rounded-md px-3 py-2 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 transition" placeholder="Ví dụ: Thêm lời thoại cho nhân vật chính, tập trung vào cảm xúc..."></textarea>
+                          </div>
+                          <button id="start-script-button" class="w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold py-2 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed">
+                            Bắt Đầu Viết
+                          </button>
+                      </div>
+                      <div id="script-results-container" class="mt-4"></div>
+                  </div>
+                </div>
+              </div>
+          </div>
+          
+          <!-- Batch Analysis Panel -->
+           <div id="panel-batch" class="tab-panel hidden">
+              <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Left Column -->
+                <div class="flex flex-col gap-6">
+                    <div id="batch-upload-container" class="w-full p-6 border-2 border-dashed rounded-xl text-center transition-all duration-300 border-slate-600 hover:border-cyan-400 hover:bg-slate-800/50 cursor-pointer">
+                        <input type="file" id="batch-file-input" accept="video/*" class="hidden" multiple/>
+                        <div class="flex flex-col items-center justify-center gap-4">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-12 h-12 text-slate-500"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" /></svg>
+                          <div id="batch-upload-text">
+                            <p class="text-lg font-semibold text-slate-300">Chọn nhiều video để xử lý hàng loạt</p>
+                            <p class="text-sm text-slate-500">Các video sẽ được xử lý song song để tăng tốc độ.</p>
+                          </div>
+                        </div>
+                    </div>
+                     <button id="batch-analyze-button" class="hidden w-full bg-gradient-to-r from-teal-500 to-cyan-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100">
+                        Bắt Đầu Phân Tích Hàng Loạt
+                    </button>
+                    <div id="batch-overall-progress" class="text-center text-sm text-slate-400"></div>
+                </div>
+                <!-- Right Column: Batch Results -->
+                <div class="lg:max-h-[calc(100vh-220px)] lg:overflow-y-auto pr-2" id="batch-results-container">
+                   <div id="batch-results-placeholder" class="flex items-center justify-center h-full p-8 bg-slate-800/50 rounded-lg">
+                       <p class="text-slate-400 text-center">Chọn các video để bắt đầu phân tích hàng loạt.</p>
+                   </div>
+                </div>
+              </div>
+           </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Export Modal -->
+    <div id="export-modal" class="hidden fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4 transition-opacity duration-300 opacity-0">
+      <div class="bg-slate-800 rounded-lg shadow-xl p-6 w-full max-w-md border border-slate-700 transform transition-all duration-300 scale-95">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-bold text-slate-200">Tùy chọn xuất file</h2>
+          <button id="close-modal-btn" class="text-slate-400 hover:text-white text-3xl font-bold leading-none">&times;</button>
+        </div>
+        <div class="space-y-4">
+          <div>
+            <button id="export-full-txt-btn" class="w-full text-left p-4 rounded-lg bg-slate-700 hover:bg-slate-600 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500">
+              <p class="font-semibold text-purple-300">Tải file TXT (Toàn bộ nội dung)</p>
+              <p class="text-sm text-slate-400 mt-1">Tạo file .txt chứa timestamp, mô tả, và prompt cho mỗi phân cảnh.</p>
+            </button>
+          </div>
+          <div>
+            <button id="export-prompts-btn" class="w-full text-left p-4 rounded-lg bg-slate-700 hover:bg-slate-600 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500">
+              <p class="font-semibold text-cyan-300">Tải file TXT (Chỉ Prompts)</p>
+              <p class="text-sm text-slate-400 mt-1">Tạo một file văn bản (.txt) chỉ chứa danh sách các prompt tiếng Anh, mỗi prompt một dòng.</p>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

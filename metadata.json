@@ -1,0 +1,5 @@
+{
+  "name": "Phân tích video - Web API (Hoàn thiện 5)",
+  "description": "Phân tích chi tiết từng phân cảnh của video bằng cột mốc thời gian",
+  "requestFramePermissions": []
+}
